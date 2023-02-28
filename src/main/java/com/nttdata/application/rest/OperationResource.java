@@ -1,6 +1,8 @@
 package com.nttdata.application.rest;
 
+import com.nttdata.btask.rest_client.ExchangeApi;
 import com.nttdata.btask.rest_client.WalletApi;
+import com.nttdata.domain.models.ExchangeDto;
 import com.nttdata.domain.models.ResponseDto;
 import com.nttdata.domain.models.WalletDto;
 import io.smallrye.mutiny.Uni;
@@ -24,6 +26,9 @@ public class OperationResource {
 
   @RestClient
   WalletApi walletApi;
+
+  @RestClient
+  ExchangeApi exchangeApi;
 
   @POST
   @Path("/register")
@@ -60,4 +65,63 @@ public class OperationResource {
     return Uni.createFrom().item(res);
   }
 
+  @POST
+  @Path("/exchanges/buys")
+  @Counted(name = "count_register_wallet_petition")
+  @Timed(name = "time_register_wallet_petition")
+  @Fallback(fallbackMethod = "fallbackRegisterPetition")
+  public Uni<ResponseDto> registerPetition(ExchangeDto exchangeDto){
+    ResponseDto res = new ResponseDto();
+    res.setStatus("200");
+    res.setMsg("Se proceso Correctamente");
+    res.setObject(exchangeDto);
+    return exchangeApi.registerPetition(exchangeDto).map(c->{
+      ExchangeDto exchange = new ExchangeDto();
+      exchange.setNumberTransaction(c.getNumberTransaction());
+      exchange.setNumberTelephone(c.getNumberTelephone());
+      exchange.setAmount(c.getAmount());
+      exchange.setTypeDocument(c.getTypeDocument());
+      exchange.setTypePay(c.getTypePay());
+      exchange.setNumberDocument(c.getNumberDocument());
+      res.setObject(exchange);
+      return res;
+    });
+  }
+
+  public Uni<ResponseDto> fallbackRegisterPetition(ExchangeDto exchangeDto) {
+    ResponseDto res = new ResponseDto();
+    res.setStatus("204");
+    res.setMsg("Servicio no disponile intente en una horas nuevamente, porfavor ...");
+    return Uni.createFrom().item(res);
+  }
+
+  @POST
+  @Path("/exchanges/pay")
+  @Counted(name = "count_register_wallet_pay")
+  @Timed(name = "time_register_wallet_pay")
+  public Uni<ResponseDto> registerPay(ExchangeDto exchangeDto){
+    ResponseDto res = new ResponseDto();
+    res.setStatus("200");
+    res.setMsg("Se proceso Correctamente");
+
+    //res.setObject(exchangeDto);
+      return exchangeApi.findByNumberTransaction(exchangeDto).map(cc->{
+        res.setNumberTelephone(cc.getNumberTelephone());
+        return res;
+      }).call(doc->{
+        WalletDto w = new WalletDto();
+        w.setNumberTelephone(doc.getNumberTelephone());
+        return walletApi.getWallet(w).map(x->{
+          res.setObject(x);
+          System.out.println(x);
+          return res;
+      });
+      /*return walletApi.getWallet(w).map(x->{
+        System.out.println(x);
+        res.setObject(x);
+        return res;
+      });*/
+
+  });
+  }
 }
